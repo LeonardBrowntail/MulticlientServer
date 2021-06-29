@@ -7,7 +7,7 @@ namespace FinalProject
 {
     internal static class Program
     {
-        public static string path = Environment.CurrentDirectory + "\\Log.txt";
+        public static string path = Environment.CurrentDirectory + "\\" + "Log_" + DateTime.Now.ToFileTime() + ".txt";
         public static string localAddress = string.Empty;
         public static bool running = false;
 

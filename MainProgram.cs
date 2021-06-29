@@ -20,39 +20,54 @@ namespace FinalProject
         //Server mode selected
         private void select_server(object sender, EventArgs e)
         {
-            //Set server mode button to be checked
-            serverCheck.Checked = true;
-            //Disable client mode button
-            clientCheck.Enabled = false;
-            //Enable main button
-            serverStart.Enabled = true;
             try
             {
                 server = Server.GetInstance();
                 server.Main = this;
-                Write("Press start to start listening to TCP connections");
             }
             catch (Exception error)
             {
                 Write("Error: " + error.Message.ToString());
                 Console.WriteLine(e);
             }
+            if (server != null)
+            {
+                Write("Server mode selected, press start to start listening to TCP connections");
+                ActiveForm.Text += " (Server mode)";
+                serverCheck.Checked = true;
+                serverCheck.Enabled = false;
+                clientCheck.Enabled = false;
+                serverStart.Enabled = true;
+            }
         }
 
         //Client mode selected
         private void select_client(object sender, EventArgs e)
         {
-            //Disable server mode button
-            serverCheck.Enabled = false;
-            //Set client mode button to be checked
-            clientCheck.Checked = true;
-            //Enable username input
-            usernameBox.Enabled = true;
-            //Enable Host IP input
-            destIPBox.Enabled = true;
-            //Enable connect button
-            clientConnect.Enabled = true;
-            Write("Client mode selected, please input the username and host destination...");
+            try
+            {
+                client = Client.GetInstance();
+                client.Main = this;
+            }
+            catch (Exception error)
+            {
+                Write("Error: " + error.ToString());
+            }
+            if (client != null)
+            {
+                Write("Client mode selected, please input the username and host destination...");
+                ActiveForm.Text += " (Client mode)";
+                serverCheck.Enabled = false;
+                clientCheck.Enabled = false;
+                clientCheck.Checked = true;
+                usernameBox.Enabled = true;
+                destIPBox.Enabled = true;
+                clientConnect.Enabled = true;
+            }
+            else
+            {
+                Write("Client initialization failed...");
+            }
         }
 
         private void RunClient(object sender, EventArgs e)
@@ -60,22 +75,12 @@ namespace FinalProject
             IPAddress ip;
             if (IPAddress.TryParse(destIPBox.Text, out ip))
             {
-                try
-                {
-                    client = Client.GetInstance();
-                    client.Main = this;
-                    client.Start();
-                    client.Connect(ip, usernameBox.Text);
-                    Write("");
-                }
-                catch (Exception error)
-                {
-                    Write("Error: " + error.ToString());
-                    Console.WriteLine(error);
-                }
+                client.Connect(ip, usernameBox.Text);
                 if (Program.running)
                 {
                     clientConnect.Enabled = false;
+                    usernameBox.Enabled = false;
+                    destIPBox.Enabled = false;
                     clientDisconnect.Enabled = true;
                     inputBox.Enabled = true;
                     sendButton.Enabled = true;
@@ -83,7 +88,7 @@ namespace FinalProject
             }
             else
             {
-                destIPBox.Text = "";
+                destIPBox.Text = string.Empty;
                 Write("Invalid host address, please input a valid address...");
             }
         }
@@ -122,8 +127,11 @@ namespace FinalProject
 
         private void SendMessage(object sender, EventArgs e)
         {
-            client.Send(inputBox.Text);
-            inputBox.Text = "";
+            if (inputBox.Text.Length != 0)
+            {
+                client.Send(inputBox.Text);
+                inputBox.Text = string.Empty;
+            }
         }
 
         public void Write(string message)
@@ -135,6 +143,34 @@ namespace FinalProject
             else
             {
                 chatBox.Text += message + Environment.NewLine;
+            }
+        }
+
+        private void destIPBox_OnKeyPress(object sender, KeyEventArgs e)
+        {
+            if (e.KeyCode == Keys.Return)
+            {
+                RunClient(sender, e);
+            }
+        }
+
+        private void inputBox_OnKeyPress(object sender, KeyEventArgs e)
+        {
+            if (e.KeyCode == Keys.Return)
+            {
+                SendMessage(sender, e);
+            }
+        }
+
+        private void OnCloseProgram(object sender, FormClosingEventArgs e)
+        {
+            if (server != null)
+            {
+                server.Stop();
+            }
+            else
+            {
+                client.Stop();
             }
         }
     }

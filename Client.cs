@@ -12,7 +12,6 @@ namespace FinalProject
         private const short port = 8888;
         private MainProgram main = null;
         private TcpClient client;
-        private string data;
 
         public MainProgram Main { get => main; set => main = value; }
 
@@ -23,27 +22,52 @@ namespace FinalProject
 
         public void Connect(IPAddress ip, string username)
         {
-            try
+            for (short r = 0; r < 3; r++)
             {
-                //Connect to host
-                client = new TcpClient(ip.ToString(), port);
-                Write("Connected!");
-
-                //Get Stream and send the username
-                var stream = client.GetStream();
-                stream = client.GetStream();
-                var buffer = Encoding.ASCII.GetBytes(username + "</usr>");
-                stream.Write(buffer, 0, buffer.Length);
-                stream.Flush();
-
-                Thread clientThread = new Thread(GetMessage);
-                clientThread.Start();
+                try
+                {
+                    // Connect to host
+                    client = new TcpClient(ip.ToString(), port);
+                    Write("Connected!");
+                    Program.running = true;
+                    break;
+                }
+                catch (Exception)
+                {
+                    Thread.Sleep(1000);
+                }
             }
-            catch (Exception e)
+            if (client != null)
             {
-                Write("Error: " + e.Message);
-                Console.WriteLine(e);
-                client.Close();
+                if (client.Connected)
+                {
+                    try
+                    {
+                        // Get Stream and send the username
+                        var stream = client.GetStream();
+                        stream = client.GetStream();
+                        var buffer = Encoding.ASCII.GetBytes(username + "</usr>");
+                        stream.Write(buffer, 0, buffer.Length);
+                        stream.Flush();
+
+                        // Create a thread to handle incoming messages
+                        Thread clientThread = new Thread(GetMessage);
+                        clientThread.Start();
+
+                        // A Thread to ping the client, needed to refresh client.Connected
+                        Thread keepAlive = new Thread(KeepAlive);
+                        keepAlive.Start();
+                    }
+                    catch (Exception e)
+                    {
+                        Write(e.Message);
+                        Console.WriteLine(e);
+                    }
+                }
+            }
+            else
+            {
+                Write("Unable to connect to " + ip.ToString() + " after 3 retries...");
             }
         }
 
@@ -51,23 +75,33 @@ namespace FinalProject
         {
             try
             {
-                while (Program.running)
+                while (client.Connected)
                 {
                     var stream = client.GetStream();
                     var size = client.ReceiveBufferSize;
-
-                    byte[] buffer = new byte[size];
-                    stream.Read(buffer, 0, size);
-                    data = Encoding.ASCII.GetString(buffer);
-                    Write(data);
+                    var buffer = new byte[size];
+                    try
+                    {
+                        stream.Read(buffer, 0, size);
+                    }
+                    catch { }
+                    var str = Encoding.ASCII.GetString(buffer);
+                    if (str.Contains("<stop>"))
+                    {
+                        Write("Server has been shut down");
+                    }
+                    else
+                    {
+                        Write(str);
+                    }
+                    stream.Close();
                 }
             }
             catch (Exception e)
             {
-                Write("Error: " + e.Message);
+                Write(e.Message);
                 Console.WriteLine(e);
             }
-            client.Close();
         }
 
         public static Client GetInstance()
@@ -77,33 +111,46 @@ namespace FinalProject
 
         private void Write(string message)
         {
-            main.Write(message);
+            main.Write(Environment.NewLine + message);
         }
 
         public void Send(string message)
         {
-            try
+            if (client != null)
             {
-                var stream = client.GetStream();
-                var buffer = Encoding.ASCII.GetBytes(message + "</msg>");
-                stream.Write(buffer, 0, buffer.Length);
-                stream.Flush();
+                if (client.Connected)
+                {
+                    try
+                    {
+                        var stream = client.GetStream();
+                        var buffer = Encoding.ASCII.GetBytes(message + "</msg>");
+                        stream.Write(buffer, 0, buffer.Length);
+                        stream.Flush();
+                        stream.Close();
+                    }
+                    catch (Exception e)
+                    {
+                        Write(e.Message);
+                        Console.WriteLine(e);
+                    }
+                }
             }
-            catch (Exception e)
-            {
-                Write("Error: " + e.Message);
-                Console.WriteLine(e);
-            }
-        }
-
-        public void Start()
-        {
-            Program.running = true;
         }
 
         public void Stop()
         {
             Program.running = false;
+            Send("<stop>");
+            Write("Disconnected from server...");
+            client.Close();
+        }
+
+        private void KeepAlive()
+        {
+            while (client.Connected)
+            {
+                Thread.Sleep(1000);
+            }
         }
     }
 }
