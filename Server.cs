@@ -9,7 +9,6 @@ using System.Threading;
 namespace FinalProject
 {
     /* Logger class to handle server logging */
-
     public static class Logger
     {
         private static readonly object _log_lock = new object();
@@ -64,8 +63,9 @@ namespace FinalProject
         {
             try
             {
+                Write("-----------------------");
                 Write("Server started [ " + server.LocalEndpoint.ToString() + " ] Waiting for connection...");
-                Write("-------------------------------------");
+                Write("-----------------------");
                 TcpClient client = default(TcpClient);
 
                 // A Thread to ping the client, needed to refresh client.Connected
@@ -87,11 +87,7 @@ namespace FinalProject
                         string username = string.Empty;
 
                         // Read the stream and store data into buffer
-                        try
-                        {
-                            stream.Read(buffer, 0, bufferSize);
-                        }
-                        catch { }
+                        stream.Read(buffer, 0, bufferSize);
 
                         // Turn the block of data into string
                         username = Encoding.ASCII.GetString(buffer);
@@ -128,18 +124,20 @@ namespace FinalProject
                         // Create a new thread to handle clients in separate threads
                         Thread clientHandler = new Thread(() => ClientHandle(username));
                         clientHandler.Start();
-                        stream.Close();
                     }
                 }
-                client.Close();
-                server.Stop();
-                clientList.Clear();
             }
             catch (Exception e)
             {
                 Write("Error :" + e.Message.ToString());
                 Console.WriteLine(e);
             }
+            Broadcast("<stop>");
+            Write("-----------------------");
+            Write(">> Server is turned off");
+            Write("-----------------------");
+            server.Stop();
+            clientList.Clear();
         }
 
         /* This function would broadcast a message to every client connected to the server */
@@ -161,10 +159,8 @@ namespace FinalProject
                     stream.Write(Encoding.ASCII.GetBytes(message), 0, size);
                     // Flush the stream
                     stream.Flush();
-                    stream.Close();
                 }
             }
-            
         }
 
         /* This function would handle incoming data from clients */
@@ -180,7 +176,7 @@ namespace FinalProject
 
             if (client != null)
             {
-                while (client.Connected)
+                while (Program.running & client.Connected)
                 {
                     try
                     {
@@ -189,11 +185,7 @@ namespace FinalProject
                         var size = client.ReceiveBufferSize;
                         var buffer = new byte[size];
                         // Reading the buffer
-                        try
-                        {
-                            stream.Read(buffer, 0, size);
-                        }
-                        catch { }
+                        stream.Read(buffer, 0, size);
                         // Convert the data block into string
                         var str = Encoding.ASCII.GetString(buffer);
 
@@ -201,18 +193,20 @@ namespace FinalProject
                         // Clients will send a <stop> code to indicate that they are disconnecting
                         if (!str.Contains("<stop>"))
                         {
-                            str = str.Substring(0, str.IndexOf("</msg>"));
-                            // Log the string to server log
-                            Write("[" + DateTime.Now.ToString() + "] " + usr + ": " + str);
-                            // Broadcast the data to every client
-                            Broadcast(usr + ": " + str);
+                            if (str.Contains("</msg>"))
+                            {
+                                // Log the string to server log
+                                str = str.Substring(0, str.IndexOf("</msg>"));
+                                Write("[" + DateTime.Now.ToString() + "] " + usr + ": " + str);
+                                // Broadcast the data to every client
+                                Broadcast(usr + ": " + str);
+                            }
                         }
                         else
                         {
                             // Breaks if client disconnected
                             break;
                         }
-                        stream.Close();
                     }
                     catch (Exception e)
                     {
@@ -220,7 +214,9 @@ namespace FinalProject
                         Console.WriteLine(e);
                     }
                 }
+                Write("><");
                 Write(">< " + usr + " Disconnected...");
+                Write("><");
                 clientList.Remove(usr);
                 Broadcast(usr + " Disconnected...");
                 client.Close();
@@ -245,9 +241,6 @@ namespace FinalProject
         public void Start()
         {
             Program.running = true;
-            Write(">>");
-            Write(">> Server is turned on");
-            Write(">>");
             server.Start();
             Logger.LogStart();
             Thread listen = new Thread(Listen);
@@ -257,11 +250,6 @@ namespace FinalProject
         public void Stop()
         {
             Program.running = false;
-            Broadcast("<stop>");
-            Write(">>");
-            Write(">> Server is turned off");
-            Write(">>");
-            server.Stop();
         }
 
         private void KeepAlive()

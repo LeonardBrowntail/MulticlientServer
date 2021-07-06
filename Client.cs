@@ -75,27 +75,25 @@ namespace FinalProject
         {
             try
             {
-                while (client.Connected)
+                while (Program.running & client.Connected)
                 {
                     var stream = client.GetStream();
                     var size = client.ReceiveBufferSize;
                     var buffer = new byte[size];
-                    try
-                    {
-                        stream.Read(buffer, 0, size);
-                    }
-                    catch { }
+                    stream.Read(buffer, 0, size);
                     var str = Encoding.ASCII.GetString(buffer);
                     if (str.Contains("<stop>"))
                     {
                         Write("Server has been shut down");
+                        break;
                     }
                     else
                     {
                         Write(str);
                     }
-                    stream.Close();
                 }
+                Write("Disconnected from server...");
+                client.Close();
             }
             catch (Exception e)
             {
@@ -126,7 +124,6 @@ namespace FinalProject
                         var buffer = Encoding.ASCII.GetBytes(message + "</msg>");
                         stream.Write(buffer, 0, buffer.Length);
                         stream.Flush();
-                        stream.Close();
                     }
                     catch (Exception e)
                     {
@@ -134,15 +131,17 @@ namespace FinalProject
                         Console.WriteLine(e);
                     }
                 }
+                else
+                {
+                    Write("Cannot send, no connection to server");
+                }
             }
         }
 
         public void Stop()
         {
-            Program.running = false;
             Send("<stop>");
-            Write("Disconnected from server...");
-            client.Close();
+            Program.running = false;
         }
 
         private void KeepAlive()

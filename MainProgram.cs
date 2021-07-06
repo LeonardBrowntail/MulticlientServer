@@ -168,7 +168,7 @@ namespace FinalProject
             {
                 server.Stop();
             }
-            else
+            if (client != null)
             {
                 client.Stop();
             }
