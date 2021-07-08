@@ -22,10 +22,12 @@ So, basically, I had to make a program for my college and this is what I come up
   
   The thread job is to accept messages from the handled client. When a message is received, the program will encode it into a string and reads the content. If the content is a message, then the server will relay the message to every connected clients, including the handled client. The message will then be logged into a file. If the content is a termination code, the server will broadcast the disconnection of the handled client then proceeds to remove the client from the hastable. The thread is finished and the client is disconnected.
   
-  When the program is finished, the user can close the program. The server will broadcast a termination code to every connected client before cloing all connection.
+  When the program is finished, the user can close the program. The server will broadcast a termination code to every connected client before closing all connection.
 ### Client Flow 
   First, the user can insert its username and host IP. The program will try to connect to the intended server and if it is unsuccessful, the program will retry the connection for three times. If the client is connected, the program will send its username and starts a new thread.
   
   Same as the server, this thread job is to handle incoming data and showing the message it on the screen. If the message contains a terminator code, the program will notify the user that the server has disconnected. The thread will run while the program is connected to the server.
   
   When sending a message, it will be encoded into bytes and sent through a network stream to the server.
+
+  When the program is finished, the user can close the program. The client will broadcast a termination code to the server before closing its connection.
